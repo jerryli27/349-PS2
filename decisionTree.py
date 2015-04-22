@@ -60,7 +60,8 @@ def findBestSplit():
                 best_split = split
                 min_ent = ent
                 best_attr = i
-    print "The best split is in attribute " + str(best_attr) + " with split=" + str(best_split) + " and entropy=" + str(
+    print "The best split is in attribute " + str(best_attr) +":"+data[best_attr][0] \
+          + " with split=" + str(best_split) + " and entropy=" + str(
         min_ent)
 
 # This is the helper function that tries to find the best split for one attribute.
