@@ -3,22 +3,30 @@ import math
 import csv
 
 thedata = []
-ATTR_SIZE = 14 #Cannot hardcode size of attributes.
+ATTR_SIZE=0 #Cannot hardcode size of attributes.
 
 # region read data
 # The following function reads a training file in csv and write all its data in the data array.
 def readTrainFile(filename):
     gazeFile = open(filename, 'r')
     gazeFile = csv.reader(gazeFile, delimiter=",")
-    data = [[] for i in range(ATTR_SIZE)]
+    lineCounter=0
+    data = []
     # The data is recorded in column by column format, because I think this is a better way to store data
     # when creating a decision tree
     for line in gazeFile:
         if (line[-1] == '?'):
             pass
         else:
-            for i in range(ATTR_SIZE):
-                data[i].append(try_to_float(line[i]))
+            if lineCounter == 0:
+                for i in range(0, line.__len__()):
+                    data.append([line[i]])
+            else:
+                for i in range(0, line.__len__()):
+                    data[i].append(try_to_float(line[i]))
+            lineCounter += 1
+    global ATTR_SIZE
+    ATTR_SIZE=line.__len__()
     return data
 
 
@@ -206,8 +214,9 @@ def buildDecisionTree(data, default, height):
 
 
 maxHeight = 3
-thedata = readTrainFile()
-#print(thedata[0][0])
+thedata = readTrainFile('btrain.csv')
+print(thedata[0])
+print(ATTR_SIZE)
 #findBestSplit(thedata)
-print(buildDecisionTree(thedata, 1, 0))
+#print(buildDecisionTree(thedata, 1, 0))
 
