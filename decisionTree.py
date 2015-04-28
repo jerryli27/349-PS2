@@ -7,8 +7,8 @@ ATTR_SIZE = 14
 
 # region read data
 # The following function reads a training file in csv and write all its data in the data array.
-def readTrainFile():
-    gazeFile = open('btrain.csv', 'r')
+def readTrainFile(filename):
+    gazeFile = open(filename, 'r')
     gazeFile = csv.reader(gazeFile, delimiter=",")
     data = [[] for i in range(ATTR_SIZE)]
     # The data is recorded in column by column format, because I think this is a better way to store data
