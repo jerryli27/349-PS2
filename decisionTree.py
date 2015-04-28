@@ -3,7 +3,7 @@ import math
 import csv
 
 thedata = []
-ATTR_SIZE = 14
+ATTR_SIZE = 14 #Cannot hardcode size of attributes.
 
 # region read data
 # The following function reads a training file in csv and write all its data in the data array.
@@ -54,7 +54,7 @@ def findBestSplit(data):
         else:
             averagePos = sumPos / counterPos
             averageNeg = sumNeg / counterNeg
-            split = averageNeg + averagePos
+            split = (averageNeg + averagePos)/2
             # We would fine-tune the split using basic hill climbing till entropy reaches minimum
             ent, split = findBestSplitAux(split, data[i], data[data.__len__() - 1])
             if ent < min_ent:
@@ -105,15 +105,15 @@ def findBestSplitAux(initSplit, attrList, resultList):
                         counterPosRight += 1
                     else:
                         counterNegRight += 1
+        total=1.0*counterPosLeft+counterPosRight+counterNegLeft+counterNegRight
+        ent = (counterPosLeft+counterNegLeft)/total*entropy(counterPosLeft, counterNegLeft) + (counterPosRight+counterNegRight)/total*entropy(counterPosRight, counterNegRight)
+        # I chose <= here because I don't want to get stuck on a platform
+        if ent < minEnt:
+            minEnt = ent
+            bestSplit = tryLeftSplit
+            leftSucceed = True
         else:
-            ent = entropy(counterPosLeft, counterNegLeft) + entropy(counterPosRight, counterNegRight)
-            # I chose <= here because I don't want to get stuck on a platform
-            if ent < minEnt:
-                minEnt = ent
-                bestSplit = tryLeftSplit
-                leftSucceed = True
-            else:
-                leftSucceed = False
+            leftSucceed = False
 
         #right side
         counterPosLeft = 0;
@@ -132,15 +132,15 @@ def findBestSplitAux(initSplit, attrList, resultList):
                         counterPosRight += 1
                     else:
                         counterNegRight += 1
+        total=1.0*counterPosLeft+counterPosRight+counterNegLeft+counterNegRight
+        ent = (counterPosLeft+counterNegLeft)/total*entropy(counterPosLeft, counterNegLeft) + (counterPosRight+counterNegRight)/total*entropy(counterPosRight, counterNegRight)
+        #I chose < here because I don't want the algorithm to never end when the solution is a platform
+        if ent < minEnt:
+            minEnt = ent
+            bestSplit = tryRightSplit
+            rightSucceed = True
         else:
-            ent = entropy(counterPosLeft, counterNegLeft) + entropy(counterPosRight, counterNegRight)
-            #I chose < here because I don't want the algorithm to never end when the solution is a platform
-            if ent < minEnt:
-                minEnt = ent
-                bestSplit = tryRightSplit
-                rightSucceed = True
-            else:
-                rightSucceed = False
+            rightSucceed = False
     return minEnt, bestSplit
 
 
@@ -207,7 +207,7 @@ def buildDecisionTree(data, default, height):
 
 maxHeight = 3
 thedata = readTrainFile()
-#print(data)
+#print(thedata[0][0])
 #findBestSplit(thedata)
 print(buildDecisionTree(thedata, 1, 0))
 
