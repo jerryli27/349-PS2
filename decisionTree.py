@@ -1,6 +1,7 @@
 __author__ = ['Jerry', 'Ivy']
 import math
 import csv
+import sys
 
 thedata = []
 ATTR_SIZE=0 #Cannot hardcode size of attributes.
@@ -27,6 +28,21 @@ def readTrainFile(filename):
             lineCounter += 1
     global ATTR_SIZE
     ATTR_SIZE=line.__len__()
+    # Calculate the mean and replace all ? with mean value
+    sum=[0]*ATTR_SIZE
+    counter=[0]*ATTR_SIZE
+    for i in range(0,ATTR_SIZE):
+        for j in range(1,data[i].__len__()):
+            if (isinstance(data[i][j],float)):
+                sum[i]+=data[i][j]
+                counter[i]+=1
+    for i in range(0,ATTR_SIZE):
+        average=sum[i]/counter[i]
+        for j in range(1,data[i].__len__()):
+            if (not isinstance(data[i][j],float)):
+                data[i][j]=average
+
+
     return data
 
 
@@ -47,6 +63,8 @@ def findBestSplit(data):
         counterPos = 0
         sumNeg = 0
         counterNeg = 0
+        maxNum=-sys.maxint-1.0
+        minNum=float(sys.maxint)
         for j in range(0, data[i].__len__()):
             if isinstance(data[i][j], float):
                 if data[data.__len__() - 1][j] == 1:
@@ -55,6 +73,10 @@ def findBestSplit(data):
                 else:
                     sumNeg += data[i][j]
                     counterNeg += 1
+                if data[i][j]>maxNum:
+                    maxNum=data[i][j]
+                if data[i][j]<minNum:
+                    minNum=data[i][j]
         if counterNeg == 0 or counterPos == 0:
             best_attr = i
             best_split = None
@@ -63,12 +85,17 @@ def findBestSplit(data):
             averagePos = sumPos / counterPos
             averageNeg = sumNeg / counterNeg
             split = (averageNeg + averagePos)/2
-            # We would fine-tune the split using basic hill climbing till entropy reaches minimum
-            ent, split = findBestSplitAux(split, data[i], data[data.__len__() - 1])
-            if ent < min_ent:
-                best_split = split
-                min_ent = ent
-                best_attr = i
+            # Compute split. Split=max-min/number of instances
+            # Set is to exclude the repeating instances
+            step=(maxNum-minNum)/set(data[i]).__len__()
+            # Step=0 if max=min. In that case we do not perform a split on this attr.
+            if (not step==0):
+                # We would fine-tune the split using basic hill climbing till entropy reaches minimum
+                ent, split = findBestSplitAux(split, data[i], data[data.__len__() - 1],step)
+                if ent < min_ent:
+                    best_split = split
+                    min_ent = ent
+                    best_attr = i
     print "The best split is in attribute " + str(best_attr) +":"+data[best_attr][0] \
           + " with split=" + str(best_split) + " and entropy=" + str(min_ent)
     return best_attr, best_split, min_ent
@@ -77,7 +104,7 @@ def findBestSplit(data):
 # Input: initSplit (the split starting point), attrList (list of attributes),
 # resultList (List of the result, which is either 0 or 1)
 # Return: minEnt (The smallest entropy) bestSplit (The optimal line to split the attributes)
-def findBestSplitAux(initSplit, attrList, resultList):
+def findBestSplitAux(initSplit, attrList, resultList,step):
     # This function tries to find the best split by checking:
     #   1. Whether a split on the left of current best split produces a lower entropy
     #   2. Whether a split on the right of current best split produces a lower entropy
@@ -88,14 +115,15 @@ def findBestSplitAux(initSplit, attrList, resultList):
     # The step variable needs some improvement. I am not sure what step we should use to search.
     # Some variables have values like 0,1,2 so the step should be 1 for those
     # Others have like 66.5, 41.1, what should be the step for these?
-    step = 1
-    minEnt = 1000;
+
+    minEnt =sys.maxint;
     bestSplit = initSplit;
     leftSucceed = True;
     rightSucceed = True
+    counterEqual=1
     while (leftSucceed or rightSucceed):
-        tryLeftSplit = bestSplit - step;
-        tryRightSplit = bestSplit + step;
+        tryLeftSplit = bestSplit - step*counterEqual;
+        tryRightSplit = bestSplit + step*counterEqual;
         # left side
         counterPosLeft = 0;
         counterNegLeft = 0;
@@ -120,6 +148,7 @@ def findBestSplitAux(initSplit, attrList, resultList):
             minEnt = ent
             bestSplit = tryLeftSplit
             leftSucceed = True
+            counterEqual=1
         else:
             leftSucceed = False
 
@@ -147,6 +176,11 @@ def findBestSplitAux(initSplit, attrList, resultList):
             minEnt = ent
             bestSplit = tryRightSplit
             rightSucceed = True
+            counterEqual=1
+        elif ent==minEnt:
+            bestSplit=(tryRightSplit+tryLeftSplit)/2.0
+            rightSucceed=True
+            counterEqual+=1
         else:
             rightSucceed = False
     return minEnt, bestSplit
@@ -213,10 +247,10 @@ def buildDecisionTree(data, default, height):
 
 
 
-maxHeight = 3
+maxHeight = 5
 thedata = readTrainFile('btrain.csv')
-print(thedata[0])
-print(ATTR_SIZE)
+#print(thedata[0])
+#print(ATTR_SIZE)
 #findBestSplit(thedata)
-#print(buildDecisionTree(thedata, 1, 0))
+print(buildDecisionTree(thedata, 1, 0))
 
