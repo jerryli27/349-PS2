@@ -1,4 +1,4 @@
-__author__ = ['Jerry', 'Ivy']
+__author__ = 'Jerry', 'Ivy'
 import math
 import csv
 import sys
@@ -50,8 +50,6 @@ def readTrainFile(filename):
         for j in range(1,data[i].__len__()):
             if (not isinstance(data[i][j],float)):
                 data[i][j]=average
-
-
     return data
 
 
@@ -230,6 +228,7 @@ def entropy(pos, neg):
 
 # the main function for building a decision tree
 # follow the algorithm in the slides
+# Tree node: [ attr_index, attr_split_value, node_for_less/0_or_1, node_for_more/0_or_1 ]
 def buildDecisionTree(data, default, height):
     dataSize = len(data[0])-1
     # if the data set is empty, return the default
@@ -240,7 +239,7 @@ def buildDecisionTree(data, default, height):
         return data[-1][1]
     # if the tree height reaches the maximum, then return the majority of the result so far
     elif (height == maxHeight):
-        return round(sum(data[-1][1:])/dataSize)
+        return int(round(sum(data[-1][1:])/dataSize))
     # else, compute the tree
     else:
         best_attr, best_split, min_ent = findBestSplit(data)
