@@ -4,11 +4,13 @@ import csv
 import sys
 
 thedata = []
+notInt=[]
 ATTR_SIZE=0 #Cannot hardcode size of attributes.
 
 # region read data
 # The following function reads a training file in csv and write all its data in the data array.
 def readTrainFile(filename):
+    global notInt
     gazeFile = open(filename, 'r')
     gazeFile = csv.reader(gazeFile, delimiter=",")
     lineCounter=0
@@ -31,13 +33,20 @@ def readTrainFile(filename):
     # Calculate the mean and replace all ? with mean value
     sum=[0]*ATTR_SIZE
     counter=[0]*ATTR_SIZE
+    notInt=[False]*ATTR_SIZE #Whether a category is all integers or all floats.
     for i in range(0,ATTR_SIZE):
         for j in range(1,data[i].__len__()):
             if (isinstance(data[i][j],float)):
                 sum[i]+=data[i][j]
                 counter[i]+=1
+                #If originally we think it's all integers but there is a non-integer number
+                if (notInt[i]==False and (not data[i][j].is_integer())):
+                    notInt[i]=True
     for i in range(0,ATTR_SIZE):
-        average=sum[i]/counter[i]
+        if notInt[i]==False:
+            average=int(sum[i]/counter[i])
+        else:
+            average=sum[i]/counter[i]
         for j in range(1,data[i].__len__()):
             if (not isinstance(data[i][j],float)):
                 data[i][j]=average
@@ -51,6 +60,7 @@ def readTrainFile(filename):
 # region decision tree building
 def findBestSplit(data):
     # Initialize
+    global notInt
     best_attr = -1  # The attribute that a split will produce the most decrease in entropy
     best_split = None  # The value for splitting
     min_ent = 10000  # The minimum entropy
@@ -87,7 +97,13 @@ def findBestSplit(data):
             split = (averageNeg + averagePos)/2
             # Compute split. Split=max-min/number of instances
             # Set is to exclude the repeating instances
-            step=(maxNum-minNum)/set(data[i]).__len__()
+            if (notInt[i]==False): #If the category only contains integers.
+                if maxNum==minNum:
+                    step=0.0
+                else:
+                    step=0.5 #half of 1 because otherwise it will get stuck testing say -0.5 and 1.5 repeatedly when all values fall in either 0 or 1
+            else:
+                step=(maxNum-minNum)/set(data[i]).__len__()
             # Step=0 if max=min. In that case we do not perform a split on this attr.
             if (not step==0):
                 # We would fine-tune the split using basic hill climbing till entropy reaches minimum
