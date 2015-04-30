@@ -4,7 +4,8 @@ import decisionTree
 
 # prediction: given a tree and a set of parameters (without the winning param),
 # return the predicted winning outcome
-def predictWin(tree, params):
+# is recursive
+def predictWin(params, tree):
     if (isinstance(tree, int) or isinstance(tree, float)):
         return tree
     if (params[tree[0]] < tree[1]):
@@ -12,17 +13,14 @@ def predictWin(tree, params):
     else:
         return predictWin(tree[3], params)
 
-# learning curve analysis
+# produce data of random size
 def randData(size, data):
-    new = [[d[0]] for d in data]
-    attr_size = len(data)
     data_size = len(data[0])
-    for i in range(data_size):
-        if (random.random() < size):
-            for j in range(attr_size):
-                new[j].append(data[j][i])
+    split_list = [(random.random() < size) for i in range(data_size)]
+    new = efficientlySplitData(data, split_list, True)
     return new
 
+# do the learning curve analysis
 def showLearningCurve(data, tree):
     accuracy_list = []
     for size in [0.1*i for i in range(1, 10)]:
@@ -30,10 +28,18 @@ def showLearningCurve(data, tree):
         tree = buildDecisionTree(data, 1, 0)
         accuracy = testAccuracy(new_data, tree)
         accuracy_list.append([size, accuracy])
+    for l in accuracy_list:
+        print ""
     return accuracy_list
 
 # output tree
-
+def printTree(tree):
+    return
 
 # do testing & report accuracy
+def testAccuracy(data, tree):
+    data_size = len(data[0])-1
+    attr_size = len(data)
+    for i in range(data_size):
+        params = [data[j][i] for j in range(attr_size)]
 

@@ -244,20 +244,26 @@ def buildDecisionTree(data, default, height):
     else:
         best_attr, best_split, min_ent = findBestSplit(data)
         tree = [best_attr, best_split]
-        less = [[data[i][0]] for i in range(ATTR_SIZE)]
-        more = [[data[i][0]] for i in range(ATTR_SIZE)]
-        for i in range(1, dataSize+1):
-            if (data[best_attr][i] < best_split):
-                for j in range(ATTR_SIZE):
-                    less[j].append(data[j][i])
-            else:
-                for j in range(ATTR_SIZE):
-                    more[j].append(data[j][i])
+        split_list = [(data[best_attr][i+1] < best_split) for i in range(dataSize)]
+        less = efficientlySplitData(data, split_list, True)
+        more = efficientlySplitData(data, split_list, False)
         print "Less size: " + str(len(less[0])) + "  More size: " + str(len(more[0]))
         tree.append(buildDecisionTree(less, 1, height+1))
         tree.append(buildDecisionTree(more, 1, height+1))
         return tree
 
+
+# an efficient way to split the data, with a built split list first and a "match"
+# escapes the j-i problem that reduces speed
+def efficientlySplitData(data, split_list, match):
+    new_data = []
+    for d in data:
+        line = [d[0]]
+        for i in range(len(split_list)):
+            if (split_list[i] == match):
+                line.append(d[i+1])
+        new_data.append(line)
+    return new_data
 
 
 
