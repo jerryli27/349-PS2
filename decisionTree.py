@@ -445,7 +445,7 @@ def disNormalForm(tree, attrs):
             if tree[3] == 0:
                 return "("+attr+"<"+split+")"
             elif isinstance(tree[3], list):
-                return "(("+attr+"<"+split+")or(("+attr+"<"+split+")"+disNormalForm(tree[3], attrs)+"))"
+                return "(("+attr+"<"+split+")or(("+attr+"<"+split+")and"+disNormalForm(tree[3], attrs)+"))"
         elif tree[2] == 0:
             if tree[3] == 1:
                 return "("+attr+">"+split+")"
@@ -513,7 +513,7 @@ def plotLearningCurve(accuracy_list):
 
 
 
-MAX_HEIGHT = 9
+MAX_HEIGHT = 3
 theData = readTrainFile('btrain.csv')
 theValidationData = readTrainFile('bvalidate.csv')
 #theTestData = readTestFile('btest.csv')
