@@ -2,8 +2,10 @@ __author__ = 'Jerry', 'Ivy'
 import math
 import csv
 import sys
+import random
+import matplotlib.pyplot as plt
 
-thedata = []
+theData = []
 notInt=[]
 ATTR_SIZE=0 #Cannot hardcode size of attributes.
 
@@ -18,16 +20,17 @@ def readTrainFile(filename):
     # The data is recorded in column by column format, because I think this is a better way to store data
     # when creating a decision tree
     for line in gazeFile:
-        if (line[-1] == '?'):
+        if (line[-1] == '?') and (filename != 'btest.csv'):
             pass
         else:
             if lineCounter == 0:
                 for i in range(0, line.__len__()):
-                    data.append([line[i]])
+                    data.append([line[i].replace(" ", "")])
             else:
                 for i in range(0, line.__len__()):
                     data[i].append(try_to_float(line[i]))
             lineCounter += 1
+    gazeFile.close()
     global ATTR_SIZE
     ATTR_SIZE=line.__len__()
     # Calculate the mean and replace all ? with mean value
@@ -110,8 +113,8 @@ def findBestSplit(data):
                     best_split = split
                     min_ent = ent
                     best_attr = i
-    print "The best split is in attribute " + str(best_attr) +":"+data[best_attr][0] \
-          + " with split=" + str(best_split) + " and entropy=" + str(min_ent)
+    #print "The best split is in attribute " + str(best_attr) +":"+data[best_attr][0] \
+    #      + " with split=" + str(best_split) + " and entropy=" + str(min_ent)
     return best_attr, best_split, min_ent
 
 # This is the helper function that tries to find the best split for one attribute.
@@ -233,30 +236,40 @@ def buildDecisionTree(data, default, height):
     dataSize = len(data[0])-1
     # if the data set is empty, return the default
     if (dataSize == 0):
-        return default
+        return int(default)
     # if all the data left have the same result, return it
     elif (data[-1][1:] == dataSize * data[-1][1]):
-        return data[-1][1]
+        return int(data[-1][1])
     # if the tree height reaches the maximum, then return the majority of the result so far
-    elif (height == maxHeight):
+    elif (height == MAX_HEIGHT):
         return int(round(sum(data[-1][1:])/dataSize))
     # else, compute the tree
     else:
         best_attr, best_split, min_ent = findBestSplit(data)
-        tree = [best_attr, best_split]
+        tree = [int(best_attr), best_split]
         split_list = [(data[best_attr][i+1] < best_split) for i in range(dataSize)]
         less = efficientlySplitData(data, split_list, True)
         more = efficientlySplitData(data, split_list, False)
-        print "Less size: " + str(len(less[0])) + "  More size: " + str(len(more[0]))
+        # print "Less size: " + str(len(less[0])) + "  More size: " + str(len(more[0]))
         tree.append(buildDecisionTree(less, 1, height+1))
         tree.append(buildDecisionTree(more, 1, height+1))
+        tree = cleanTree(tree)
         return tree
 
+
+def cleanTree(tree):
+    if isinstance(tree, int):
+        return tree
+    if isinstance(tree[2], int) and isinstance(tree[3], int) and tree[2] == tree[3]:
+        return tree[2]
+    return [tree[0], tree[1], cleanTree(tree[2]), cleanTree(tree[3])]
 
 # an efficient way to split the data, with a built split list first and a "match"
 # escapes the j-i problem that reduces speed
 def efficientlySplitData(data, split_list, match):
     new_data = []
+    if (len(data[0]) != len(split_list)+1):
+        print "error: data size " + str(len(data[0])) + " split size " + str(len(split_list))
     for d in data:
         line = [d[0]]
         for i in range(len(split_list)):
@@ -267,11 +280,160 @@ def efficientlySplitData(data, split_list, match):
 
 
 
+#endregion
 
-maxHeight = 5
-thedata = readTrainFile('btrain.csv')
-#print(thedata[0])
-#print(ATTR_SIZE)
-#findBestSplit(thedata)
-print(buildDecisionTree(thedata, 1, 0))
+# region: prediction
 
+# prediction: given a tree and a set of parameters (without the winning param),
+# return the predicted winning outcome
+def predictWin(params, tree):
+    if (isinstance(tree, int) or isinstance(tree, float)):
+        return tree
+    if (params[tree[0]] < tree[1]):
+        return predictWin(params, tree[2])
+    else:
+        return predictWin(params, tree[3])
+
+# given the test data (without the real answer), return the predicted real answer
+def predictTest(data, tree):
+    data_size = len(data[0])-1
+    attr_size = len(data)
+    predicted = []
+    for i in range(data_size):
+        params = [data[j][i] for j in range(attr_size)]
+        predicted.append(predictWin(params, tree))
+    return predicted
+
+
+# given the test data and the tree, do prediction and output the csv result
+def outputCSVResult(test_data, tree):
+    predicted = predictTest(test_data, tree)
+    infile = open('btest.csv', 'r')
+    in_writer = csv.reader(infile, delimiter=",")
+    outfile = open('ps2.csv', 'wb')
+    out_writer = csv.writer(outfile, delimiter=',')
+    count = 0
+    for line in in_writer:
+        out_line = line
+        if (line[-1] == '?'):
+            out_line[-1] = predicted[count]
+            count += 1
+        out_writer.writerow(out_line)
+    infile.close()
+    outfile.close()
+    return
+
+
+
+
+# given the validation data, report the accuracy rate
+def validateAccuracy(data, tree):
+    data_size = len(data[0])-1
+    attr_size = len(data)
+    accu_count = 0
+    for i in range(data_size):
+        params = [data[j][i] for j in range(attr_size)]
+        result = predictWin(params[:-1], tree)
+        if (result == params[-1]):
+            accu_count += 1
+    accu_rate = float(accu_count)/float(data_size)
+    print "Accuracy Rate: " + str(accu_rate)
+    return accu_rate
+
+
+# region: manage the tree
+
+# print the tree, first in python list form, then in disjunctive normal form
+def printTree(tree):
+    print(tree)
+    attrs = [theData[i][0] for i in range(len(theData))]
+    print(disNormalForm(tree, attrs))
+    return
+
+def disNormalForm(tree, attrs):
+    if isinstance(tree, int):
+        return "error"
+    else:
+        attr = str(attrs[tree[0]])
+        split = str(tree[1])[:4]
+        if tree[2] == 1:
+            if tree[3] == 0:
+                return "("+attr+"<"+split+")"
+            elif isinstance(tree[3], list):
+                return "(("+attr+"<"+split+")or(("+attr+"<"+split+")"+disNormalForm(tree[3], attrs)+"))"
+        elif tree[2] == 0:
+            if tree[3] == 1:
+                return "("+attr+">"+split+")"
+            elif isinstance(tree[3], list):
+                return "(("+attr+">"+split+")and"+disNormalForm(tree[3], attrs)+")"
+        elif isinstance(tree[2], list):
+            if tree[3] == 0:
+                return "(("+attr+"<"+split+")and"+disNormalForm(tree[2], attrs)+")"
+            elif tree[3] == 1:
+                return "(("+attr+">"+split+")or(("+attr+"<"+split+")and"+disNormalForm(tree[2], attrs)+"))"
+            elif isinstance(tree[3], list):
+                return "((("+attr+"<"+split+")and"+disNormalForm(tree[2],attrs)+\
+                       ")or(("+attr+">"+split+")and"+disNormalForm(tree[3], attrs)+"))"
+        return "error"
+
+# endregion
+
+# region: Learning curve analysis
+
+# do the learning curve analysis
+# trial_num is the number of trial for each data size
+def showLearningCurve(data, validation_data, trial_num, will_prune):
+    data_size = len(data[0])-1
+    accuracy_list = [[], []]
+    sizes = [0.1*i for i in range(1, 11)] # it's [0.1, 0.2, ... 1.0] for now
+    for size in sizes:
+        accu_rate = 0
+        data_size_count = 0
+        if size < 1.0:
+            for trials in range(trial_num):
+                split_list = [(random.random() < ratio) for i in range(data_size)]
+                new_data = efficientlySplitData(data, split_list, True)
+                tree = buildDecisionTree(new_data, 1, 0)
+                if will_prune:
+                    pass    # ADD PRUNING FUNCTION HERE
+                accu_rate += validateAccuracy(validation_data, tree)
+                data_size_count += len(new_data[0])
+            accuracy = accu_rate/float(trial_num)
+            avg_size = data_size_count/float(trial_num)
+        else:
+            accuracy = validateAccuracy(data, buildDecisionTree(data, 1, 0))
+        print "With size of " + str(avg_size/data_size)[:5] + ", the accuracy is " + str(accuracy)
+        accuracy_list[0].append(size)
+        accuracy_list[1].append(accuracy)
+    plotLearningCurve(accuracy_list)    # comment out this line if you don't have matplotlib
+    return accuracy_list
+
+# given the accuracy list, open a window and plot it
+def plotLearningCurve(accuracy_list):
+    plt.plot(accuracy_list[0], accuracy_list[1])
+    plt.xlabel('Data Size')
+    plt.ylabel('Accuracy Rate')
+    plt.show()
+
+#endregion
+
+
+
+
+
+MAX_HEIGHT = 4
+theData = readTrainFile('btrain.csv')
+theValidationData = readTrainFile('bvalidate.csv')
+#theTestData = readTrainFile('btest.csv')
+#theTree = buildDecisionTree(theData, 1, 0)
+#printTree(theTree)
+showLearningCurve(theData, theValidationData, 3, False)
+
+'''
+BTW, the validation accuracy of unpruned tree is like the following:
+    MAX_HEIGHT = 3: 0.848
+    MAX_HEIGHT = 4: 0.879
+    MAX_HEIGHT = 5: 0.894
+    MAX_HEIGHT = 6: 0.904
+    MAX_HEIGHT = 7: 0.909
+'''
