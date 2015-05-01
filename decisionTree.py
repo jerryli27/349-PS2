@@ -4,6 +4,8 @@ import csv
 import sys
 import random
 import matplotlib.pyplot as plt
+#import threading
+#from multiprocessing import Process, Queue,Pool
 
 theData = []
 notInt=[]
@@ -20,7 +22,7 @@ def readTrainFile(filename):
     # The data is recorded in column by column format, because I think this is a better way to store data
     # when creating a decision tree
     for line in gazeFile:
-        if (line[-1] == '?') and (filename != 'btest.csv'):
+        if (line[-1] == '?') :
             pass
         else:
             if lineCounter == 0:
@@ -30,7 +32,6 @@ def readTrainFile(filename):
                 for i in range(0, line.__len__()):
                     data[i].append(try_to_float(line[i]))
             lineCounter += 1
-    gazeFile.close()
     global ATTR_SIZE
     ATTR_SIZE=line.__len__()
     # Calculate the mean and replace all ? with mean value
@@ -47,7 +48,48 @@ def readTrainFile(filename):
                     notInt[i]=True
     for i in range(0,ATTR_SIZE):
         if notInt[i]==False:
-            average=int(sum[i]/counter[i])
+            average=float(int(sum[i]/counter[i]))
+        else:
+            average=sum[i]/counter[i]
+        for j in range(1,data[i].__len__()):
+            if (not isinstance(data[i][j],float)):
+                data[i][j]=average
+    return data
+
+# The following function reads a test file in csv and write all its data in the data array.
+def readTestFile(filename):
+    global notInt
+    gazeFile = open(filename, 'r')
+    gazeFile = csv.reader(gazeFile, delimiter=",")
+    lineCounter=0
+    data = []
+    # The data is recorded in column by column format, because I think this is a better way to store data
+    # when creating a decision tree
+    for line in gazeFile:
+        if lineCounter == 0:
+            for i in range(0, line.__len__()):
+                data.append([line[i].replace(" ", "")])
+        else:
+            for i in range(0, line.__len__()):
+                data[i].append(try_to_float(line[i]))
+        lineCounter += 1
+    global ATTR_SIZE
+    ATTR_SIZE=line.__len__()
+    # Calculate the mean and replace all ? with mean value
+    sum=[0]*ATTR_SIZE
+    counter=[0]*ATTR_SIZE
+    notInt=[False]*ATTR_SIZE #Whether a category is all integers or all floats.
+    for i in range(0,ATTR_SIZE-1):
+        for j in range(1,data[i].__len__()):
+            if (isinstance(data[i][j],float)):
+                sum[i]+=data[i][j]
+                counter[i]+=1
+                #If originally we think it's all integers but there is a non-integer number
+                if (notInt[i]==False and (not data[i][j].is_integer())):
+                    notInt[i]=True
+    for i in range(0,ATTR_SIZE-1):
+        if notInt[i]==False:
+            average=float(int(sum[i]/counter[i]))
         else:
             average=sum[i]/counter[i]
         for j in range(1,data[i].__len__()):
@@ -58,7 +100,7 @@ def readTrainFile(filename):
 
 # endregion
 
-# region decision tree building
+# region find best split
 def findBestSplit(data):
     # Initialize
     global notInt
@@ -138,9 +180,49 @@ def findBestSplitAux(initSplit, attrList, resultList,step):
     leftSucceed = True;
     rightSucceed = True
     counterEqual=1
+
+
     while (leftSucceed or rightSucceed):
+        #Middle
+        counterPosLeft = 0;
+        counterNegLeft = 0;
+        counterPosRight = 0;
+        counterNegRight = 0;
+        minValue=sys.maxint
+        maxValue=-sys.maxint-1
+        for i in range(0, attrList.__len__()):
+            if isinstance(attrList[i], float):
+                if attrList[i] < bestSplit:
+                    if resultList[i] == 1:
+                        counterPosLeft += 1
+                    else:
+                        counterNegLeft += 1
+                else:
+                    if resultList[i] == 1:
+                        counterPosRight += 1
+                    else:
+                        counterNegRight += 1
+                if attrList[i] <minValue:
+                    minValue=attrList[i]
+                if attrList[i] >maxValue:
+                    maxValue=attrList[i]
+        total=1.0*counterPosLeft+counterPosRight+counterNegLeft+counterNegRight
+        ent = (counterPosLeft+counterNegLeft)/total*entropy(counterPosLeft, counterNegLeft) + (counterPosRight+counterNegRight)/total*entropy(counterPosRight, counterNegRight)
+        #
+        if ent <= minEnt:
+            minEnt = ent
+            leftSucceed=False
+            rightSucceed=False
+
         tryLeftSplit = bestSplit - step*counterEqual;
         tryRightSplit = bestSplit + step*counterEqual;
+        #Without this break, the program could run forever if the entropy is always the same no matter what we do
+        if (tryLeftSplit<minValue and tryRightSplit>maxValue):
+            ent = entropy(counterPosRight+counterPosLeft, counterNegRight+counterNegLeft)
+            if ent <= minEnt:
+                minEnt = ent
+                bestSplit=tryLeftSplit
+            break
         # left side
         counterPosLeft = 0;
         counterNegLeft = 0;
@@ -200,6 +282,7 @@ def findBestSplitAux(initSplit, attrList, resultList,step):
             counterEqual+=1
         else:
             rightSucceed = False
+
     return minEnt, bestSplit
 
 
@@ -228,6 +311,7 @@ def entropy(pos, neg):
 
 #endregion
 
+#region build decision tree
 
 # the main function for building a decision tree
 # follow the algorithm in the slides
@@ -282,7 +366,7 @@ def efficientlySplitData(data, split_list, match):
 
 #endregion
 
-# region: prediction
+#region prediction
 
 # prediction: given a tree and a set of parameters (without the winning param),
 # return the predicted winning outcome
@@ -306,11 +390,12 @@ def predictTest(data, tree):
 
 
 # given the test data and the tree, do prediction and output the csv result
-def outputCSVResult(test_data, tree):
+def outputCSVResult(test_file_name,output_file_name, tree):
+    test_data=readTestFile(test_file_name)
     predicted = predictTest(test_data, tree)
-    infile = open('btest.csv', 'r')
+    infile = open(test_file_name, 'r')
     in_writer = csv.reader(infile, delimiter=",")
-    outfile = open('ps2.csv', 'wb')
+    outfile = open(output_file_name, 'wb')
     out_writer = csv.writer(outfile, delimiter=',')
     count = 0
     for line in in_writer:
@@ -322,7 +407,7 @@ def outputCSVResult(test_data, tree):
     infile.close()
     outfile.close()
     return
-
+#endregion
 
 
 
@@ -341,7 +426,7 @@ def validateAccuracy(data, tree):
     return accu_rate
 
 
-# region: manage the tree
+#region manage the tree
 
 # print the tree, first in python list form, then in disjunctive normal form
 def printTree(tree):
@@ -378,39 +463,46 @@ def disNormalForm(tree, attrs):
 
 # endregion
 
-# region: Learning curve analysis
+# region Learning curve analysis
 
 # do the learning curve analysis
 # trial_num is the number of trial for each data size
 def showLearningCurve(data, validation_data, trial_num, will_prune):
     data_size = len(data[0])-1
-    accuracy_list = [[], []]
+    accuracy_list = [[0]*10, [0]*10]
     sizes = [0.1*i for i in range(1, 11)] # it's [0.1, 0.2, ... 1.0] for now
-    for size in sizes:
-        accu_rate = 0
-        data_size_count = 0
-        if size < 1.0:
-            for trials in range(trial_num):
-                split_list = [(random.random() < ratio) for i in range(data_size)]
-                new_data = efficientlySplitData(data, split_list, True)
-                tree = buildDecisionTree(new_data, 1, 0)
-                if will_prune:
-                    pass    # ADD PRUNING FUNCTION HERE
-                accu_rate += validateAccuracy(validation_data, tree)
-                data_size_count += len(new_data[0])
-            accuracy = accu_rate/float(trial_num)
-            avg_size = data_size_count/float(trial_num)
-        else:
-            accuracy = validateAccuracy(data, buildDecisionTree(data, 1, 0))
-        print "With size of " + str(avg_size/data_size)[:5] + ", the accuracy is " + str(accuracy)
-        accuracy_list[0].append(size)
-        accuracy_list[1].append(accuracy)
+    if __name__ == '__main__':
+        args_list=[]
+        for size in sizes:
+            computeLearningCurve(data, validation_data, trial_num, will_prune,accuracy_list,data_size,size)
     plotLearningCurve(accuracy_list)    # comment out this line if you don't have matplotlib
     return accuracy_list
 
+# This is the computation steps in the for loop. It is now used as a single function for multithreading.I tried to use multithreading but failed
+def computeLearningCurve(data, validation_data, trial_num, will_prune,accuracy_list,data_size,size):
+    accu_rate = 0
+    data_size_count = 0
+    if size < 1.0:
+        for trials in range(trial_num):
+            split_list = [(random.random() < size) for i in range(data_size)]
+            new_data = efficientlySplitData(data, split_list, True)
+            tree = buildDecisionTree(new_data, 1, 0)
+            if will_prune:
+                pass    # ADD PRUNING FUNCTION HERE
+            accu_rate += validateAccuracy(validation_data, tree)
+            data_size_count += len(new_data[0])
+        accuracy = accu_rate/float(trial_num)
+        avg_size = data_size_count/float(trial_num)
+    else:
+        accuracy = validateAccuracy(validation_data, buildDecisionTree(data, 1, 0))
+        avg_size = len(data[0])
+    print "With size of " + str(avg_size/data_size)[:5] + ", the accuracy is " + str(accuracy)
+    accuracy_list[0][int(size*10)-1]=size
+    accuracy_list[1][int(size*10)-1]=accuracy
 # given the accuracy list, open a window and plot it
 def plotLearningCurve(accuracy_list):
     plt.plot(accuracy_list[0], accuracy_list[1])
+    #plt.axis([0,1,0,1])
     plt.xlabel('Data Size')
     plt.ylabel('Accuracy Rate')
     plt.show()
@@ -421,10 +513,10 @@ def plotLearningCurve(accuracy_list):
 
 
 
-MAX_HEIGHT = 4
+MAX_HEIGHT = 9
 theData = readTrainFile('btrain.csv')
 theValidationData = readTrainFile('bvalidate.csv')
-#theTestData = readTrainFile('btest.csv')
+#theTestData = readTestFile('btest.csv')
 #theTree = buildDecisionTree(theData, 1, 0)
 #printTree(theTree)
 showLearningCurve(theData, theValidationData, 3, False)
