@@ -547,22 +547,32 @@ def plotLearningCurve(accuracy_list):
 
 #endregion
 
+def countTree(tree):
+    if isinstance(tree, list):
+        return 1+countTree(tree[2])+countTree(tree[3])
+    return 0
 
 
 
 
-MAX_HEIGHT = 3
+MAX_HEIGHT = 8
 theData = readTrainFile('btrain.csv')
 theValidationData = readTrainFile('bvalidate.csv')
 #theTestData = readTestFile('btest.csv')
 theTree = buildDecisionTree(theData, 1, 0)
 prunedTree=copy.deepcopy(pruneTree(theTree,theValidationData))
-print theTree==prunedTree
+print "Unpruned: "
 printTree(theTree)
 print validateAccuracy(theValidationData,theTree)
+print "Pruned: "
 printTree(prunedTree)
 print validateAccuracy(theValidationData,prunedTree)
-#showLearningCurve(theData, theValidationData, 3, True)
+
+print (countTree(theTree))
+print (countTree(prunedTree))
+showLearningCurve(theData, theValidationData, 3, False)
+showLearningCurve(theData, theValidationData, 3, True)
+
 #outputCSVResult('btest.csv','ps2', prunedTree)
 
 '''
