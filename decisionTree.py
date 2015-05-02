@@ -4,6 +4,7 @@ import csv
 import sys
 import random
 import matplotlib.pyplot as plt
+import copy
 #import threading
 #from multiprocessing import Process, Queue,Pool
 
@@ -322,21 +323,25 @@ def buildDecisionTree(data, default, height):
     if (dataSize == 0):
         return int(default)
     # if all the data left have the same result, return it
-    elif (data[-1][1:] == dataSize * data[-1][1]):
-        return int(data[-1][1])
+    # This function never returns true for some reason
+    #elif (data[-1][1:] == [data[-1][1]] * dataSize ):
+        #print "same"
+        #return int(data[-1][1])
     # if the tree height reaches the maximum, then return the majority of the result so far
     elif (height == MAX_HEIGHT):
         return int(round(sum(data[-1][1:])/dataSize))
     # else, compute the tree
     else:
         best_attr, best_split, min_ent = findBestSplit(data)
+        if best_split==None:
+            return int(data[-1][1])
         tree = [int(best_attr), best_split]
         split_list = [(data[best_attr][i+1] < best_split) for i in range(dataSize)]
         less = efficientlySplitData(data, split_list, True)
         more = efficientlySplitData(data, split_list, False)
         # print "Less size: " + str(len(less[0])) + "  More size: " + str(len(more[0]))
-        tree.append(buildDecisionTree(less, 1, height+1))
-        tree.append(buildDecisionTree(more, 1, height+1))
+        tree.append(buildDecisionTree(less, int(round(sum(less[-1][1:])/(len(less[0])-1))), height+1))
+        tree.append(buildDecisionTree(more, int(round(sum(more[-1][1:])/(len(more[0])-1))), height+1))
         tree = cleanTree(tree)
         return tree
 
@@ -347,6 +352,37 @@ def cleanTree(tree):
     if isinstance(tree[2], int) and isinstance(tree[3], int) and tree[2] == tree[3]:
         return tree[2]
     return [tree[0], tree[1], cleanTree(tree[2]), cleanTree(tree[3])]
+
+# Pruning the tree.
+def pruneTree(node,validation_data):
+    if (not isinstance(node,int)):
+        data_size = len(validation_data[0])-1
+        if data_size==0:
+            return node
+        attr_size = len(validation_data)
+        split_list = [(validation_data[node[0]][i+1] < node[1]) for i in range(data_size)]
+        less = efficientlySplitData(validation_data, split_list, True)
+        less_size=len(less[0])-1
+        more = efficientlySplitData(validation_data, split_list, False)
+        more_size=len(more[0])-1
+        all_accu=validateAccuracy(validation_data,int(round(sum(validation_data[-1][1:])/data_size)))
+        less_accu=validateAccuracy(less,node[2])
+        more_accu=validateAccuracy(more,node[3])
+        if all_accu*data_size>less_size*less_accu+more_size* more_accu:
+        #if validateAccuracy(validation_data,node)*data_size>less_size*validateAccuracy(less,node[2])+more_size* validateAccuracy(more,node[3]):
+            #print "Pruned"
+            node= int(round(sum(validation_data[-1][1:])/data_size))
+            return node
+        else:
+            l=pruneTree(node[2],less)
+            m=pruneTree(node[3],more)
+            return [node[0],node[1],l,m]
+    else:
+        return node
+
+
+
+
 
 # an efficient way to split the data, with a built split list first and a "match"
 # escapes the j-i problem that reduces speed
@@ -414,6 +450,8 @@ def outputCSVResult(test_file_name,output_file_name, tree):
 # given the validation data, report the accuracy rate
 def validateAccuracy(data, tree):
     data_size = len(data[0])-1
+    if data_size==0:
+        return 0
     attr_size = len(data)
     accu_count = 0
     for i in range(data_size):
@@ -422,7 +460,7 @@ def validateAccuracy(data, tree):
         if (result == params[-1]):
             accu_count += 1
     accu_rate = float(accu_count)/float(data_size)
-    print "Accuracy Rate: " + str(accu_rate)
+    #print "Accuracy Rate: " + str(accu_rate)
     return accu_rate
 
 
@@ -488,7 +526,7 @@ def computeLearningCurve(data, validation_data, trial_num, will_prune,accuracy_l
             new_data = efficientlySplitData(data, split_list, True)
             tree = buildDecisionTree(new_data, 1, 0)
             if will_prune:
-                pass    # ADD PRUNING FUNCTION HERE
+                tree=copy.deepcopy(pruneTree(tree,validation_data))
             accu_rate += validateAccuracy(validation_data, tree)
             data_size_count += len(new_data[0])
         accuracy = accu_rate/float(trial_num)
@@ -517,9 +555,15 @@ MAX_HEIGHT = 3
 theData = readTrainFile('btrain.csv')
 theValidationData = readTrainFile('bvalidate.csv')
 #theTestData = readTestFile('btest.csv')
-#theTree = buildDecisionTree(theData, 1, 0)
-#printTree(theTree)
-showLearningCurve(theData, theValidationData, 3, False)
+theTree = buildDecisionTree(theData, 1, 0)
+prunedTree=copy.deepcopy(pruneTree(theTree,theValidationData))
+print theTree==prunedTree
+printTree(theTree)
+print validateAccuracy(theValidationData,theTree)
+printTree(prunedTree)
+print validateAccuracy(theValidationData,prunedTree)
+#showLearningCurve(theData, theValidationData, 3, True)
+#outputCSVResult('btest.csv','ps2', prunedTree)
 
 '''
 BTW, the validation accuracy of unpruned tree is like the following:
